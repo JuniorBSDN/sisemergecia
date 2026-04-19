@@ -4,8 +4,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
 # Conexão com Vercel Postgres / Local
