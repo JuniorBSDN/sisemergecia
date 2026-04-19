@@ -152,103 +152,109 @@
         </div>
     </div>
 
-    <script>
-        const API_URL = 'http://localhost:5000/api/unidades';
-        const AUTH_URL = 'http://localhost:5000/api/auth';
-        const modal = document.getElementById('modal-cadastro');
-        const form = document.getElementById('form-empresa');
+   <script>
+    const API_URL = 'http://localhost:5000/api/unidades';
+    const modal = document.getElementById('modal-cadastro');
+    const form = document.getElementById('form-empresa');
 
-        function toggleModal(id) {
-            document.getElementById(id).classList.toggle('hidden');
-            document.getElementById(id).classList.toggle('flex');
+    // --- PROTEÇÃO DE ACESSO ---
+    function verificarAcesso() {
+        const chaveValida = localStorage.getItem('backinfo_key');
+        if (!chaveValida) {
+            const acesso = prompt("ACESSO RESTRITO: Digite a Chave Mestra BackInfo:");
+            if (acesso) {
+                localStorage.setItem('backinfo_key', acesso);
+                location.reload();
+            } else {
+                document.body.innerHTML = `
+                    <div class="flex flex-col items-center justify-center min-h-screen bg-slate-900 text-red-500">
+                        <h1 class="text-4xl font-black italic uppercase tracking-tighter">Acesso Negado</h1>
+                        <p class="text-slate-500 font-bold mt-2 uppercase text-xs">Chave Mestra não fornecida.</p>
+                        <button onclick="location.reload()" class="mt-6 text-white border border-slate-700 px-6 py-2 text-[10px] font-black uppercase hover:bg-slate-800">Tentar Novamente</button>
+                    </div>`;
+            }
         }
+    }
 
-        // CARREGA DADOS DO BANCO (READ)
-        async function carregarUnidades() {
-            try {
-                const res = await fetch(API_URL);
-                const dados = await res.json();
-                const tbody = document.getElementById('tabela-empresas');
-                tbody.innerHTML = "";
-                dados.forEach(u => {
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-emerald-50/50 transition-colors" id="row-${u.cnes}">
-                            <td class="p-4 font-black text-emerald-600 text-lg tracking-tighter cnes-val">${u.cnes}</td>
-                            <td class="p-4">
-                                <div class="text-slate-900 font-black razao-val uppercase">${u.razao_social}</div>
-                                <div class="text-[10px] font-bold text-slate-400 mb-2 fantasia-val">${u.nome_fantasia || ''}</div>
-                                <div class="flex flex-col text-[10px] text-slate-600 font-bold border-l-2 border-emerald-100 pl-2">
-                                    <span class="email-val lowercase">${u.email || ''}</span>
-                                    <span class="telefone-val">${u.telefone || ''}</span>
-                                </div>
-                            </td>
-                            <td class="p-4">
-                                <div class="font-bold text-slate-700 cnpj-val">${u.cnpj}</div>
-                                <div class="text-[9px] text-slate-400 font-bold uppercase tracking-tight">IE: <span class="ie-val">${u.ie || ''}</span> | IM: <span class="im-val">${u.im || ''}</span></div>
-                            </td>
-                            <td class="p-4 max-w-[200px]">
-                                <div class="text-[10px] text-slate-500 font-bold uppercase leading-tight endereco-val italic">${u.endereco || ''}</div>
-                            </td>
-                            <td class="p-4">
-                                <div class="flex flex-col gap-1">
-                                    <button onclick="prepararEdicao('${u.cnes}')" class="btn-core text-blue-600 hover:bg-blue-50 border border-blue-200 px-3 py-1.5 text-[9px]">Alterar</button>
-                                    <button onclick="excluirEmpresa('${u.cnes}')" class="btn-core text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 text-[9px]">Excluir</button>
-                                </div>
-                            </td>
-                        </tr>
-                    `;
-                });
-            } catch (err) { console.warn("POSTGRESQL OFFLINE - Verifique porta 5000"); }
+    // --- UTILITÁRIOS ---
+    function toggleModal(id) {
+        const el = document.getElementById(id);
+        el.classList.toggle('hidden');
+        el.classList.toggle('flex');
+    }
+
+    // --- OPERAÇÕES DE DADOS (CRUD) ---
+
+    // READ: Carregar Unidades do PostgreSQL
+    async function carregarUnidades() {
+        const tbody = document.getElementById('tabela-empresas');
+        try {
+            const res = await fetch(API_URL);
+            if (!res.ok) throw new Error("Erro na API");
+
+            const dados = await res.json();
+            tbody.innerHTML = "";
+
+            dados.forEach(u => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-emerald-50/50 transition-colors border-b border-slate-100" id="row-${u.cnes}">
+                        <td class="p-4 font-black text-emerald-600 text-lg tracking-tighter cnes-val">${u.cnes}</td>
+                        <td class="p-4">
+                            <div class="text-slate-900 font-black razao-val uppercase">${u.razao_social}</div>
+                            <div class="text-[10px] font-bold text-slate-400 mb-2 fantasia-val">${u.nome_fantasia || ''}</div>
+                            <div class="flex flex-col text-[10px] text-slate-600 font-bold border-l-2 border-emerald-100 pl-2">
+                                <span class="email-val lowercase">${u.email || ''}</span>
+                                <span class="telefone-val">${u.telefone || ''}</span>
+                            </div>
+                        </td>
+                        <td class="p-4">
+                            <div class="font-bold text-slate-700 cnpj-val">${u.cnpj}</div>
+                            <div class="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
+                                IE: <span class="ie-val">${u.ie || ''}</span> | IM: <span class="im-val">${u.im || ''}</span>
+                            </div>
+                        </td>
+                        <td class="p-4 max-w-[200px]">
+                            <div class="text-[10px] text-slate-500 font-bold uppercase leading-tight endereco-val italic">${u.endereco || ''}</div>
+                        </td>
+                        <td class="p-4">
+                            <div class="flex flex-col gap-1">
+                                <button onclick="prepararEdicao('${u.cnes}')" class="btn-core text-blue-600 hover:bg-blue-50 border border-blue-200 px-3 py-1.5 text-[9px]">Alterar</button>
+                                <button onclick="excluirEmpresa('${u.cnes}')" class="btn-core text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 text-[9px]">Excluir</button>
+                            </div>
+                        </td>
+                    </tr>`;
+            });
+        } catch (err) {
+            console.error(err);
+            tbody.innerHTML = `<tr><td colspan="5" class="p-10 text-center font-black text-red-500 uppercase text-xs">Servidor Offline na Porta 5000 - Verifique o PostgreSQL Local</td></tr>`;
         }
+    }
 
-        // PREPARAÇÃO PARA CADASTRO / EDIÇÃO
-        function prepararCadastro() {
-            form.reset();
-            document.getElementById('modo-edicao').value = "false";
-            document.getElementById('cnes').readOnly = false;
-            document.getElementById('modal-titulo').innerText = "Efetivar Nova Unidade";
-            toggleModal('modal-cadastro');
-        }
+    // CREATE / UPDATE: Sincronização SQL
+    form.onsubmit = async function(e) {
+        e.preventDefault();
 
-        function prepararEdicao(cnes) {
-            const row = document.getElementById(`row-${cnes}`);
-            document.getElementById('cnes').value = cnes;
-            document.getElementById('cnes').readOnly = true;
-            document.getElementById('razao').value = row.querySelector('.razao-val').innerText;
-            document.getElementById('fantasia').value = row.querySelector('.fantasia-val').innerText;
-            document.getElementById('cnpj').value = row.querySelector('.cnpj-val').innerText;
-            document.getElementById('email').value = row.querySelector('.email-val').innerText;
-            document.getElementById('telefone').value = row.querySelector('.telefone-val').innerText;
-            document.getElementById('endereco').value = row.querySelector('.endereco-val').innerText;
-            document.getElementById('ie').value = row.querySelector('.ie-val').innerText;
-            document.getElementById('im').value = row.querySelector('.im-val').innerText;
+        const modoEdicao = document.getElementById('modo-edicao').value === "true";
+        const payload = {
+            cnes: document.getElementById('cnes').value,
+            razao: document.getElementById('razao').value,
+            fantasia: document.getElementById('fantasia').value,
+            cnpj: document.getElementById('cnpj').value,
+            email: document.getElementById('email').value,
+            telefone: document.getElementById('telefone').value,
+            endereco: document.getElementById('endereco').value,
+            ie: document.getElementById('ie').value,
+            im: document.getElementById('im').value,
+            rt: document.getElementById('rt').value,
+            conselho: document.getElementById('conselho').value,
+            protocolo: document.getElementById('protocolo').value,
+            // Prioriza a senha digitada no campo, caso contrário usa a do localStorage
+            senha: document.getElementById('senha').value || localStorage.getItem('backinfo_key')
+        };
 
-            document.getElementById('modo-edicao').value = "true";
-            document.getElementById('modal-titulo').innerText = "Sincronizar Alterações SQL";
-            toggleModal('modal-cadastro');
-        }
-
-        // OPERAÇÕES DE BANCO (SQL SYNC)
-        form.onsubmit = async function(e) {
-            e.preventDefault();
-            const payload = {
-                cnes: document.getElementById('cnes').value,
-                razao: document.getElementById('razao').value,
-                fantasia: document.getElementById('fantasia').value,
-                cnpj: document.getElementById('cnpj').value,
-                email: document.getElementById('email').value,
-                telefone: document.getElementById('telefone').value,
-                endereco: document.getElementById('endereco').value,
-                ie: document.getElementById('ie').value,
-                im: document.getElementById('im').value,
-                rt: document.getElementById('rt').value,
-                conselho: document.getElementById('conselho').value,
-                protocolo: document.getElementById('protocolo').value,
-                senha: document.getElementById('senha').value
-            };
-
+        try {
             const res = await fetch(API_URL, {
-                method: 'POST',
+                method: modoEdicao ? 'PUT' : 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
@@ -256,29 +262,77 @@
             if (res.ok) {
                 toggleModal('modal-cadastro');
                 carregarUnidades();
+                form.reset();
             } else {
-                alert("AUTORIZAÇÃO NEGADA: Verifique sua chave BackInfo.");
+                alert("ERRO NA OPERAÇÃO: Verifique a Chave Mestra ou duplicidade de CNES.");
             }
-        };
+        } catch (err) {
+            alert("Falha de comunicação com o servidor local.");
+        }
+    };
 
-        async function excluirEmpresa(cnes) {
-            const senha = prompt("Ação Irreversível. Digite sua chave BackInfo para deletar " + cnes);
-            if (!senha) return;
+    // DELETE: Remoção SQL
+    async function excluirEmpresa(cnes) {
+        const senhaConfirmacao = prompt(`AÇÃO CRÍTICA: Digite a Chave Mestra para excluir permanentemente a unidade ${cnes}:`);
+        if (!senhaConfirmacao) return;
+
+        try {
             const res = await fetch(`${API_URL}/${cnes}`, {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ senha })
+                body: JSON.stringify({ senha: senhaConfirmacao })
             });
-            if (res.ok) carregarUnidades();
-        }
 
-        function fazerLogout() {
-            if(confirm("Deseja realmente encerrar a sessão administrativa?")) {
-                window.location.href = "login.html";
+            if (res.ok) {
+                carregarUnidades();
+            } else {
+                alert("Chave incorreta. Exclusão abortada.");
             }
+        } catch (err) {
+            alert("Erro ao processar exclusão.");
         }
+    }
 
-        window.onload = carregarUnidades;
-    </script>
+    // --- CONTROLE DE UI ---
+
+    function prepararCadastro() {
+        form.reset();
+        document.getElementById('modo-edicao').value = "false";
+        document.getElementById('cnes').readOnly = false;
+        document.getElementById('modal-titulo').innerText = "Efetivar Nova Unidade";
+        toggleModal('modal-cadastro');
+    }
+
+    function prepararEdicao(cnes) {
+        const row = document.getElementById(`row-${cnes}`);
+        document.getElementById('cnes').value = cnes;
+        document.getElementById('cnes').readOnly = true;
+        document.getElementById('razao').value = row.querySelector('.razao-val').innerText;
+        document.getElementById('fantasia').value = row.querySelector('.fantasia-val').innerText;
+        document.getElementById('cnpj').value = row.querySelector('.cnpj-val').innerText;
+        document.getElementById('email').value = row.querySelector('.email-val').innerText;
+        document.getElementById('telefone').value = row.querySelector('.telefone-val').innerText;
+        document.getElementById('endereco').value = row.querySelector('.endereco-val').innerText;
+        document.getElementById('ie').value = row.querySelector('.ie-val').innerText;
+        document.getElementById('im').value = row.querySelector('.im-val').innerText;
+
+        document.getElementById('modo-edicao').value = "true";
+        document.getElementById('modal-titulo').innerText = "Sincronizar Alterações SQL";
+        toggleModal('modal-cadastro');
+    }
+
+    function fazerLogout() {
+        if(confirm("Deseja realmente encerrar a sessão administrativa?")) {
+            localStorage.removeItem('backinfo_key');
+            location.reload();
+        }
+    }
+
+    // --- INICIALIZAÇÃO ---
+    window.onload = () => {
+        verificarAcesso();
+        carregarUnidades();
+    };
+</script>
 </body>
 </html>
