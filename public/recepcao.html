@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVN // RECEPÇÃO CONSOLIDADA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #f8fafc; color: #1e293b; }
+        .hvn-card { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .input-rec { @apply bg-white border border-slate-300 p-2.5 rounded-none text-[11px] text-slate-900 focus:border-blue-600 outline-none transition-all font-bold uppercase w-full; }
+        .label-rec { @apply text-[9px] text-blue-600 font-black mb-1 ml-1 uppercase tracking-tighter block; }
+        .section-title { @apply text-[10px] text-slate-400 font-black mb-6 border-b border-slate-100 pb-2 uppercase italic flex items-center gap-2; }
+        .hidden { display: none !important; }
+
+        /* Estilo Sugestões */
+        #sugestoes { @apply absolute z-50 w-full bg-white border border-slate-200 shadow-xl max-h-48 overflow-y-auto hidden top-full left-0; }
+        .sugestao-item { @apply p-3 text-[11px] border-b border-slate-50 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors uppercase font-bold; }
+
+        /* --- LOGICA DE IMPRESSÃO ROBUSTA --- */
+        @media print {
+            body { background: white !important; }
+            #auth-screen, #main-app, .no-print { display: none !important; }
+            #print-ticket { display: block !important; visibility: visible !important; }
+            @page { margin: 0.5cm; size: auto; }
+        }
+        #print-ticket { display: none; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4 bg-slate-900">
+        <div class="max-w-md w-full bg-white p-10 border-t-8 border-blue-600 shadow-2xl">
+            <div class="text-center mb-8">
+                <div class="inline-block w-14 h-14 bg-blue-600 text-white font-black text-3xl mb-4 flex items-center justify-center italic shadow-lg">R</div>
+                <h1 class="text-2xl font-black text-slate-900 uppercase italic">Acesso Recepção</h1>
+                <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Hospital Municipal de Vigia // BackInfo</p>
+            </div>
+            <div class="space-y-5">
+                <div>
+                    <label class="label-rec">CPF do Prestador</label>
+                    <input type="text" id="auth_cpf" class="input-rec p-4 text-center text-lg" placeholder="000.000.000-00">
+                </div>
+                <div>
+                    <label class="label-rec">Senha de Acesso</label>
+                    <input type="password" id="auth_pass" class="input-rec p-4 text-center text-lg" placeholder="••••••••">
+                </div>
+                <button onclick="realizarLogin()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 uppercase italic text-sm transition-all shadow-xl shadow-blue-100">Entrar no Sistema</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="main-app" class="hidden p-4 md:p-8">
+        <header class="max-w-7xl mx-auto flex justify-between items-center mb-8 border-b-2 border-slate-200 pb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-blue-600 flex items-center justify-center text-white font-black text-xl italic shadow-lg">R</div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 tracking-tighter italic uppercase">HVN // Recepção</h1>
+                    <p id="user-display" class="text-[9px] text-blue-600 font-black uppercase tracking-widest italic">Operador: ---</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <p id="data-hora" class="text-slate-900 font-black text-xs hidden md:block"></p>
+                <button onclick="realizarLogout()" class="bg-slate-100 text-slate-500 border border-slate-200 px-5 py-2.5 text-[10px] font-black uppercase italic hover:bg-red-600 hover:text-white transition-all">Sair</button>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <form id="form-recepcao" class="lg:col-span-8 space-y-6">
+                <section class="hvn-card p-8 border-t-4 border-blue-600">
+                    <h2 class="section-title"><span class="w-2 h-2 bg-blue-500 rounded-full"></span> 01. Admissão SIA/SUS</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                        <div class="md:col-span-6 relative">
+                            <label class="label-rec">Nome Completo</label>
+                            <input type="text" id="nome" class="input-rec" placeholder="PESQUISAR PACIENTE..." required autocomplete="off" oninput="buscarSugestoes(this.value)">
+                            <div id="sugestoes"></div>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="label-rec text-emerald-600">Cartão SUS</label>
+                            <input type="text" id="cns" class="input-rec border-emerald-200 bg-emerald-50/20" placeholder="000 0000 0000 0000" required maxlength="15">
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="label-rec">CPF</label>
+                            <input type="text" id="cpf" class="input-rec" placeholder="000.000.000-00">
+                        </div>
+                        <div class="md:col-span-5">
+                            <label class="label-rec">Nome da Mãe</label>
+                            <input type="text" id="nome_mae" class="input-rec" required>
+                        </div>
+                        <div class="md:col-span-3">
+                            <label class="label-rec">Nascimento</label>
+                            <input type="date" id="nascimento" class="input-rec" required>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="label-rec">Sexo</label>
+                            <select id="sexo" class="input-rec">
+                                <option value="M">MASCULINO</option>
+                                <option value="F">FEMININO</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="label-rec">Cor/Raça</label>
+                            <select id="cor" class="input-rec">
+                                <option>PARDA</option><option>BRANCA</option><option>PRETA</option><option>AMARELA</option><option>INDÍGENA</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="hvn-card p-8">
+                    <h2 class="section-title"><span class="w-2 h-2 bg-slate-300 rounded-full"></span> 02. Localidade e Contato</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
+                        <div class="md:col-span-8">
+                            <label class="label-rec">Endereço Residencial</label>
+                            <input type="text" id="endereco" class="input-rec" placeholder="RUA, NÚMERO, BAIRRO">
+                        </div>
+                        <div class="md:col-span-4">
+                            <label class="label-rec">Telefone Contato</label>
+                            <input type="text" id="tel" class="input-rec" placeholder="(91) 90000-0000" required>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-6 mt-10">
+                        <button type="reset" class="text-slate-400 text-[10px] font-black uppercase italic">Limpar Campos</button>
+                        <button type="submit" class="bg-blue-600 text-white font-black py-4 px-12 uppercase text-xs italic shadow-xl hover:bg-blue-700 transition-all">Finalizar e Imprimir Ticket</button>
+                    </div>
+                </section>
+            </form>
+
+            <aside class="lg:col-span-4 space-y-6">
+                <div class="hvn-card overflow-hidden">
+                    <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+                        <h3 class="text-[10px] font-black text-blue-600 uppercase italic">// Fila de Triagem</h3>
+                        <span id="contador" class="text-[10px] bg-blue-100 text-blue-700 px-3 py-1 font-black">Total: 0</span>
+                    </div>
+                    <div id="lista-pacientes" class="divide-y max-h-[550px] overflow-y-auto"></div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <div id="print-ticket">
+        <div style="font-family: 'JetBrains Mono', monospace; padding: 10px; text-transform: uppercase; border: 1px solid black;">
+            <div style="text-align: center; border-bottom: 2px solid black; margin-bottom: 10px; padding-bottom: 5px;">
+                <h3 style="margin:0; font-size: 16px;">HOSPITAL MUNICIPAL DE VIGIA</h3>
+                <small>Protocolo de Admissão - BackInfo</small>
+            </div>
+
+            <div style="font-size: 12px; line-height: 1.6;">
+                <p><b>PACIENTE:</b> <span id="pr-nome"></span></p>
+                <p><b>SUS:</b> <span id="pr-cns"></span></p>
+                <p><b>NASC:</b> <span id="pr-nasc"></span></p>
+                <p><b>MÃE:</b> <span id="pr-mae"></span></p>
+                <p><b>DATA:</b> <span id="pr-data"></span></p>
+            </div>
+
+            <div style="margin-top: 15px; border-top: 1px dashed black; padding-top: 10px; text-align: center;">
+                <p style="font-size: 14px; font-weight: bold;">AGUARDE SER CHAMADO NA TRIAGEM</p>
+                <small style="font-size: 9px;">Sistema JR Hospitalar v2.0</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+
+        // --- LOGIN ---
+        async function realizarLogin() {
+            const cpf = document.getElementById('auth_cpf').value;
+            const senha = document.getElementById('auth_pass').value;
+            if(!cpf || !senha) return alert("Preencha as credenciais.");
+
+            try {
+                const res = await fetch(`${API_BASE}/auth_prestador`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ cpf, senha })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    localStorage.setItem('hvn_recepcao_session', JSON.stringify(data.user));
+                    verificarSessao();
+                } else { alert("Acesso Negado: CPF ou Senha inválidos."); }
+            } catch (err) { alert("Servidor Backend Offline."); }
+        }
+
+        function verificarSessao() {
+            const session = localStorage.getItem('hvn_recepcao_session');
+            if (session) {
+                const user = JSON.parse(session);
+                document.getElementById('auth-screen').classList.add('hidden');
+                document.getElementById('main-app').classList.remove('hidden');
+                document.getElementById('user-display').innerText = `Operador: ${user.nome} // ${user.funcao}`;
+                carregarFila();
+            }
+        }
+
+        function realizarLogout() {
+            localStorage.removeItem('hvn_recepcao_session');
+            location.reload();
+        }
+
+        // --- BUSCA DINÂMICA ---
+        async function buscarSugestoes(valor) {
+            const box = document.getElementById('sugestoes');
+            if (valor.length < 3) { box.classList.add('hidden'); return; }
+
+            try {
+                const res = await fetch(`${API_BASE}/buscar_pacientes?q=${valor.toUpperCase()}`);
+                const pacientes = await res.json();
+
+                if (pacientes.length > 0) {
+                    box.innerHTML = pacientes.map(p => `
+                        <div class="sugestao-item" onclick='selecionarPaciente(${JSON.stringify(p)})'>
+                            ${p.nome} <br> <span class="text-[9px] text-slate-400">SUS: ${p.cns} | MÃE: ${p.nome_mae}</span>
+                        </div>
+                    `).join('');
+                    box.classList.remove('hidden');
+                } else { box.classList.add('hidden'); }
+            } catch (e) { box.classList.add('hidden'); }
+        }
+
+        function selecionarPaciente(p) {
+            document.getElementById('nome').value = p.nome;
+            document.getElementById('cns').value = p.cns;
+            document.getElementById('nome_mae').value = p.nome_mae || '';
+            document.getElementById('nascimento').value = p.data_nascimento || '';
+            document.getElementById('cpf').value = p.cpf || '';
+            document.getElementById('tel').value = p.telefone || '';
+            document.getElementById('endereco').value = p.endereco || '';
+            document.getElementById('sexo').value = p.sexo || 'M';
+            document.getElementById('sugestoes').classList.add('hidden');
+        }
+
+        // --- ADMISSÃO ---
+        document.getElementById('form-recepcao').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                cns: document.getElementById('cns').value,
+                nome: document.getElementById('nome').value,
+                cpf: document.getElementById('cpf').value,
+                nome_mae: document.getElementById('nome_mae').value,
+                data_nascimento: document.getElementById('nascimento').value,
+                sexo: document.getElementById('sexo').value,
+                raca: document.getElementById('cor').value,
+                telefone: document.getElementById('tel').value,
+                endereco: document.getElementById('endereco').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/pacientes`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    imprimirTicket(payload);
+                    document.getElementById('form-recepcao').reset();
+                    carregarFila();
+                } else {
+                    const erro = await res.json();
+                    alert("Erro: " + erro.message);
+                }
+            } catch (err) { alert("Erro ao conectar com o banco de dados."); }
+        };
+
+        function imprimirTicket(p) {
+            document.getElementById('pr-nome').innerText = p.nome;
+            document.getElementById('pr-cns').innerText = p.cns;
+            document.getElementById('pr-mae').innerText = p.nome_mae;
+            document.getElementById('pr-nasc').innerText = p.data_nascimento;
+            document.getElementById('pr-data').innerText = new Date().toLocaleString();
+            window.print();
+        }
+
+        // --- FILA ---
+        async function carregarFila() {
+            try {
+                const res = await fetch(`${API_BASE}/pacientes_fila_triagem`);
+                const dados = await res.json();
+                const container = document.getElementById('lista-pacientes');
+                container.innerHTML = dados.map(p => `
+                    <div class="p-4 hover:bg-blue-50 transition-all border-l-4 border-transparent hover:border-blue-600">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-[9px] font-black text-blue-600 italic">${p.cns}</p>
+                                <h4 class="text-xs font-black uppercase text-slate-800 tracking-tighter">${p.nome}</h4>
+                                <p class="text-[8px] text-slate-400 font-bold uppercase">Mãe: ${p.nome_mae}</p>
+                            </div>
+                            <span class="text-[8px] font-bold text-slate-300">${new Date(p.criado_em).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                    </div>
+                `).join('');
+                document.getElementById('contador').innerText = `Total: ${dados.length}`;
+            } catch (err) { console.error("Falha ao carregar fila."); }
+        }
+
+        setInterval(() => {
+            document.getElementById('data-hora').innerText = new Date().toLocaleString('pt-BR');
+        }, 1000);
+
+        window.onload = verificarSessao;
+    </script>
+</body>
+</html>

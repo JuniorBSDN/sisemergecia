@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Dono - Gestão de Unidades // BackInfo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #f8fafc; color: #1e293b; }
+        .hospital-card { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .btn-core { transition: all 0.2s ease; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+        .btn-core:active { transform: scale(0.98); }
+        input, select, textarea { border: 1px solid #cbd5e1 !important; border-radius: 4px !important; background-color: #fff !important; }
+        input:focus { border-color: #10b981 !important; outline: none; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+        .label-admin { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 4px; display: block; }
+    </style>
+</head>
+<body class="min-h-screen pb-10">
+
+    <nav class="bg-white border-b border-slate-200 px-4 md:px-8 py-4 mb-6 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-emerald-600 text-white text-[12px] px-2 py-1 font-black rounded uppercase">BackInfo</div>
+                <h1 class="hidden md:block text-sm font-black text-slate-800 tracking-tighter uppercase italic">Módulo de Gestão Mestre</h1>
+            </div>
+            <button onclick="fazerLogout()" class="group flex items-center gap-2 text-red-500 hover:text-red-700 font-black text-[10px] uppercase transition-all">
+                <span>Sair do Sistema</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto p-4 md:px-6">
+        <header class="flex flex-col md:flex-row justify-between items-end mb-8 gap-4">
+            <div>
+                <h2 class="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Contratos Hospitalares</h2>
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Sincronização Ativa com Banco de Dados PostgreSQL</p>
+            </div>
+            <button onclick="prepararCadastro()" class="btn-core bg-emerald-600 hover:bg-emerald-700 text-white py-4 px-10 text-xs shadow-lg shadow-emerald-200 flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                </svg>
+                Efetivar Nova Unidade
+            </button>
+        </header>
+
+        <main class="hospital-card rounded-lg overflow-hidden">
+            <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                <h2 class="text-slate-600 font-black text-[11px] uppercase italic tracking-widest">Base de Unidades Operacionais</h2>
+                <span class="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full animate-pulse border border-emerald-100">● LIVE SQL</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-slate-100/50 text-slate-500 text-[10px] uppercase border-b border-slate-200">
+                            <th class="p-4 font-black">CNES</th>
+                            <th class="p-4 font-black">Unidade / Contato</th>
+                            <th class="p-4 font-black">Fiscal (CNPJ/IE/IM)</th>
+                            <th class="p-4 font-black">Endereço Operacional</th>
+                            <th class="p-4 text-center font-black">Gestão</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-empresas" class="divide-y divide-slate-100 text-sm">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <div id="modal-cadastro" class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm hidden flex items-center justify-center p-4 z-50">
+        <div class="bg-white w-full max-w-5xl max-h-[95vh] overflow-y-auto rounded-lg shadow-2xl border border-slate-300">
+            <div class="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <h3 id="modal-titulo" class="text-xl font-black text-slate-800 uppercase italic tracking-tighter italic">Efetivar Registro SQL</h3>
+                <button onclick="toggleModal('modal-cadastro')" class="text-slate-400 hover:text-slate-600 font-black text-2xl transition-colors">✕</button>
+            </div>
+
+            <form id="form-empresa" class="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+                <input type="hidden" id="modo-edicao" value="false">
+
+                <div class="space-y-4">
+                    <h4 class="text-[11px] font-black text-emerald-600 border-b-2 border-emerald-100 pb-1 uppercase tracking-widest">01. Jurídico & Identificação</h4>
+                    <div>
+                        <label class="label-admin">Razão Social</label>
+                        <input type="text" id="razao" class="w-full p-2.5 text-sm font-bold uppercase" required>
+                    </div>
+                    <div>
+                        <label class="label-admin">Nome Fantasia</label>
+                        <input type="text" id="fantasia" class="w-full p-2.5 text-sm font-bold uppercase">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="label-admin">CNPJ</label>
+                            <input type="text" id="cnpj" class="w-full p-2.5 text-sm font-bold" required>
+                        </div>
+                        <div>
+                            <label class="label-admin italic">CNES (PK)</label>
+                            <input type="text" id="cnes" class="w-full p-2.5 text-sm font-black text-emerald-600 border-emerald-300" required maxlength="7">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="label-admin text-[8px]">Insc. Est.</label><input type="text" id="ie" class="w-full p-2 text-xs"></div>
+                        <div><label class="label-admin text-[8px]">Insc. Mun.</label><input type="text" id="im" class="w-full p-2 text-xs"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-4 border-x border-slate-100 px-4">
+                    <h4 class="text-[11px] font-black text-emerald-600 border-b-2 border-emerald-100 pb-1 uppercase tracking-widest">02. Localização & Contato</h4>
+                    <div>
+                        <label class="label-admin">E-mail para Alertas</label>
+                        <input type="email" id="email" class="w-full p-2.5 text-sm lowercase" required>
+                    </div>
+                    <div>
+                        <label class="label-admin">Telefone / Ramal Central</label>
+                        <input type="text" id="telefone" class="w-full p-2.5 text-sm font-bold" required>
+                    </div>
+                    <div>
+                        <label class="label-admin">Endereço Completo</label>
+                        <textarea id="endereco" rows="5" class="w-full p-2.5 text-sm uppercase leading-tight font-bold text-slate-600"></textarea>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h4 class="text-[11px] font-black text-emerald-600 border-b-2 border-emerald-100 pb-1 uppercase tracking-widest">03. Parâmetros & Chave</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div><label class="label-admin">RT (Resp. Técnico)</label><input type="text" id="rt" class="w-full p-2 text-xs uppercase"></div>
+                        <div><label class="label-admin">Conselho Prof.</label><input type="text" id="conselho" class="w-full p-2 text-xs uppercase"></div>
+                    </div>
+                    <div>
+                        <label class="label-admin">Protocolo de Emergência</label>
+                        <select id="protocolo" class="w-full p-2.5 text-sm font-bold text-slate-700">
+                            <option value="manchester">Manchester (5 Cores)</option>
+                            <option value="institucional">Institucional / Interno</option>
+                        </select>
+                    </div>
+
+                    <div class="mt-8 p-5 bg-slate-900 rounded border-l-4 border-emerald-500 shadow-lg">
+                        <label class="text-[9px] font-black text-emerald-500 uppercase block mb-2 text-center tracking-widest underline">Validação Mestre BackInfo</label>
+                        <input type="password" id="senha" class="w-full bg-slate-800 border-none p-4 rounded text-center text-emerald-400 font-black text-2xl tracking-[0.5em] outline-none" placeholder="••••" required>
+                    </div>
+                </div>
+
+                <div class="col-span-1 md:col-span-3 flex justify-end gap-6 mt-4 border-t border-slate-100 pt-6">
+                    <button type="button" onclick="toggleModal('modal-cadastro')" class="text-slate-400 hover:text-slate-600 font-black uppercase text-[10px] tracking-widest">Cancelar</button>
+                    <button type="submit" id="btn-submit" class="btn-core bg-slate-900 hover:bg-black text-white py-4 px-16 text-sm shadow-xl">
+                        Sincronizar SQL Local
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api/unidades';
+        const AUTH_URL = 'http://localhost:5000/api/auth';
+        const modal = document.getElementById('modal-cadastro');
+        const form = document.getElementById('form-empresa');
+
+        function toggleModal(id) {
+            document.getElementById(id).classList.toggle('hidden');
+            document.getElementById(id).classList.toggle('flex');
+        }
+
+        // CARREGA DADOS DO BANCO (READ)
+        async function carregarUnidades() {
+            try {
+                const res = await fetch(API_URL);
+                const dados = await res.json();
+                const tbody = document.getElementById('tabela-empresas');
+                tbody.innerHTML = "";
+                dados.forEach(u => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-emerald-50/50 transition-colors" id="row-${u.cnes}">
+                            <td class="p-4 font-black text-emerald-600 text-lg tracking-tighter cnes-val">${u.cnes}</td>
+                            <td class="p-4">
+                                <div class="text-slate-900 font-black razao-val uppercase">${u.razao_social}</div>
+                                <div class="text-[10px] font-bold text-slate-400 mb-2 fantasia-val">${u.nome_fantasia || ''}</div>
+                                <div class="flex flex-col text-[10px] text-slate-600 font-bold border-l-2 border-emerald-100 pl-2">
+                                    <span class="email-val lowercase">${u.email || ''}</span>
+                                    <span class="telefone-val">${u.telefone || ''}</span>
+                                </div>
+                            </td>
+                            <td class="p-4">
+                                <div class="font-bold text-slate-700 cnpj-val">${u.cnpj}</div>
+                                <div class="text-[9px] text-slate-400 font-bold uppercase tracking-tight">IE: <span class="ie-val">${u.ie || ''}</span> | IM: <span class="im-val">${u.im || ''}</span></div>
+                            </td>
+                            <td class="p-4 max-w-[200px]">
+                                <div class="text-[10px] text-slate-500 font-bold uppercase leading-tight endereco-val italic">${u.endereco || ''}</div>
+                            </td>
+                            <td class="p-4">
+                                <div class="flex flex-col gap-1">
+                                    <button onclick="prepararEdicao('${u.cnes}')" class="btn-core text-blue-600 hover:bg-blue-50 border border-blue-200 px-3 py-1.5 text-[9px]">Alterar</button>
+                                    <button onclick="excluirEmpresa('${u.cnes}')" class="btn-core text-red-600 hover:bg-red-50 border border-red-200 px-3 py-1.5 text-[9px]">Excluir</button>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch (err) { console.warn("POSTGRESQL OFFLINE - Verifique porta 5000"); }
+        }
+
+        // PREPARAÇÃO PARA CADASTRO / EDIÇÃO
+        function prepararCadastro() {
+            form.reset();
+            document.getElementById('modo-edicao').value = "false";
+            document.getElementById('cnes').readOnly = false;
+            document.getElementById('modal-titulo').innerText = "Efetivar Nova Unidade";
+            toggleModal('modal-cadastro');
+        }
+
+        function prepararEdicao(cnes) {
+            const row = document.getElementById(`row-${cnes}`);
+            document.getElementById('cnes').value = cnes;
+            document.getElementById('cnes').readOnly = true;
+            document.getElementById('razao').value = row.querySelector('.razao-val').innerText;
+            document.getElementById('fantasia').value = row.querySelector('.fantasia-val').innerText;
+            document.getElementById('cnpj').value = row.querySelector('.cnpj-val').innerText;
+            document.getElementById('email').value = row.querySelector('.email-val').innerText;
+            document.getElementById('telefone').value = row.querySelector('.telefone-val').innerText;
+            document.getElementById('endereco').value = row.querySelector('.endereco-val').innerText;
+            document.getElementById('ie').value = row.querySelector('.ie-val').innerText;
+            document.getElementById('im').value = row.querySelector('.im-val').innerText;
+
+            document.getElementById('modo-edicao').value = "true";
+            document.getElementById('modal-titulo').innerText = "Sincronizar Alterações SQL";
+            toggleModal('modal-cadastro');
+        }
+
+        // OPERAÇÕES DE BANCO (SQL SYNC)
+        form.onsubmit = async function(e) {
+            e.preventDefault();
+            const payload = {
+                cnes: document.getElementById('cnes').value,
+                razao: document.getElementById('razao').value,
+                fantasia: document.getElementById('fantasia').value,
+                cnpj: document.getElementById('cnpj').value,
+                email: document.getElementById('email').value,
+                telefone: document.getElementById('telefone').value,
+                endereco: document.getElementById('endereco').value,
+                ie: document.getElementById('ie').value,
+                im: document.getElementById('im').value,
+                rt: document.getElementById('rt').value,
+                conselho: document.getElementById('conselho').value,
+                protocolo: document.getElementById('protocolo').value,
+                senha: document.getElementById('senha').value
+            };
+
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                toggleModal('modal-cadastro');
+                carregarUnidades();
+            } else {
+                alert("AUTORIZAÇÃO NEGADA: Verifique sua chave BackInfo.");
+            }
+        };
+
+        async function excluirEmpresa(cnes) {
+            const senha = prompt("Ação Irreversível. Digite sua chave BackInfo para deletar " + cnes);
+            if (!senha) return;
+            const res = await fetch(`${API_URL}/${cnes}`, {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ senha })
+            });
+            if (res.ok) carregarUnidades();
+        }
+
+        function fazerLogout() {
+            if(confirm("Deseja realmente encerrar a sessão administrativa?")) {
+                window.location.href = "login.html";
+            }
+        }
+
+        window.onload = carregarUnidades;
+    </script>
+</body>
+</html>

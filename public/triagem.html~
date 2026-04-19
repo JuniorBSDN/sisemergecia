@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triagem Avançada // HVN // BackInfo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #020617; }
+        .glass { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); }
+        .neon-border-green { border: 1px solid #10b981; box-shadow: 0 0 15px rgba(16, 185, 129, 0.1); }
+        .input-tri { @apply bg-slate-900 border border-slate-700 p-2 rounded focus:border-emerald-500 outline-none transition-all text-[11px] text-slate-200 placeholder-slate-600; }
+        .label-tri { @apply text-[9px] text-emerald-500 font-bold mb-1 uppercase tracking-wider; }
+
+        /* Manchester Protocol Styles */
+        .m-btn { @apply py-4 rounded text-[10px] font-bold uppercase transition-all opacity-40 hover:opacity-100 border-2 border-transparent; }
+        .m-vermelho { @apply bg-red-600 text-white; }
+        .m-laranja { @apply bg-orange-500 text-white; }
+        .m-amarelo { @apply bg-yellow-400 text-black; }
+        .m-verde { @apply bg-green-500 text-white; }
+        .m-azul { @apply bg-blue-600 text-white; }
+        .selected { @apply opacity-100 border-white ring-2 ring-emerald-500 scale-105 z-10; }
+
+        /* Row Status */
+        .status-vermelho { border-left: 6px solid #dc2626; background: rgba(220, 38, 38, 0.05); }
+        .status-laranja { border-left: 6px solid #f97316; background: rgba(249, 115, 22, 0.05); }
+        .status-amarelo { border-left: 6px solid #facc15; background: rgba(250, 204, 21, 0.05); }
+        .status-verde { border-left: 6px solid #22c55e; background: rgba(34, 197, 94, 0.05); }
+        .status-azul { border-left: 6px solid #2563eb; background: rgba(37, 99, 235, 0.05); }
+
+        @media print { .no-print { display: none; } }
+        /* --- ESTILO DE IMPRESSÃO ROBUSTO --- */
+@media print {
+    body { background: white !important; color: black !important; padding: 0 !important; }
+    #main-container, .no-print, button, #modal-atendimento { display: none !important; }
+    #prontuario-impressao { display: block !important; visibility: visible !important; }
+    @page { margin: 1cm; size: auto; }
+}
+
+#prontuario-impressao { display: none; } /* Escondido na tela */
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen p-4 md:p-8">
+
+    <div id="modal-acao" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm no-print">
+        <div class="glass p-8 rounded-2xl border border-emerald-500/30 max-w-sm w-full text-center">
+            <h2 id="m-nome" class="text-lg font-bold text-white mb-2 uppercase italic">---</h2>
+            <p id="m-pront" class="text-[10px] text-emerald-500 mb-6 tracking-widest uppercase">---</p>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="alert('CHAMANDO NO PAINEL...')" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded text-[10px] uppercase transition-all">Chamar</button>
+                <button onclick="iniciarAtendimento()" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-4 rounded text-[10px] uppercase transition-all">Atender</button>
+            </div>
+            <button onclick="fecharModal('modal-acao')" class="mt-6 text-[9px] text-slate-600 uppercase hover:text-white">Cancelar</button>
+        </div>
+    </div>
+
+    <div id="modal-print" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm no-print">
+        <div class="glass p-8 rounded-2xl border border-blue-500/30 max-w-sm w-full text-center">
+            <h2 class="text-white font-bold text-xl mb-2 uppercase">Triagem Finalizada</h2>
+            <p class="text-[10px] text-blue-400 mb-8 uppercase font-bold italic tracking-widest">Enviar para Fila do Médico?</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="concluirFluxo(true)" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded text-[10px] uppercase transition-all shadow-lg shadow-blue-900/20">Sim, Imprimir e Enviar</button>
+                <button onclick="concluirFluxo(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded text-[10px] uppercase transition-all">Apenas Salvar no Banco</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-gestao" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm no-print">
+        <div class="glass p-8 rounded-2xl border border-red-500/30 max-w-sm w-full text-center">
+            <h2 id="gestao-nome" class="text-lg font-bold text-white mb-2 uppercase tracking-tighter">---</h2>
+            <p class="text-[10px] text-slate-500 mb-8 uppercase tracking-widest italic">Gerenciamento de Atendimento</p>
+            <div class="flex flex-col gap-3">
+                <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-700 text-white font-bold py-4 rounded text-[10px] uppercase border border-slate-700 transition-all">Reimprimir Ficha de Risco</button>
+                <button onclick="cancelarAtendimento()" class="bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white font-bold py-3 rounded text-[10px] uppercase border border-red-900/50 transition-all">Excluir/Cancelar Registro</button>
+                <button onclick="fecharModal('modal-gestao')" class="mt-2 text-[9px] text-slate-600 uppercase hover:text-white">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-7xl mx-auto no-print">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+
+            <div class="md:col-span-1 glass p-4 rounded-xl border border-slate-800">
+                <div class="flex justify-between items-center mb-4">
+                    <label class="label-tri italic text-slate-500">Aguardando Triagem</label>
+                    <span class="text-[9px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-800">HVN</span>
+                </div>
+                <div class="space-y-3 max-h-[600px] overflow-y-auto" id="fila-espera">
+                    <div id="pac-2026-001" onclick="preAcao('JOSE AIRTON JR', '2026-001')" class="bg-slate-900/50 p-4 rounded border border-slate-800 cursor-pointer hover:border-emerald-500 transition-all border-l-4 border-l-slate-700">
+                        <span class="text-[9px] text-emerald-500 font-bold block mb-1">ID: 2026-001</span>
+                        <span class="text-xs font-bold uppercase text-white tracking-tight">JOSE AIRTON JR</span>
+                    </div>
+                    <div id="pac-2026-002" onclick="preAcao('MARIA NAZARÉ', '2026-002')" class="bg-slate-900/50 p-4 rounded border border-slate-800 cursor-pointer hover:border-emerald-500 transition-all border-l-4 border-l-slate-700">
+                        <span class="text-[9px] text-emerald-500 font-bold block mb-1">ID: 2026-002</span>
+                        <span class="text-xs font-bold uppercase text-white tracking-tight">MARIA NAZARÉ</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="md:col-span-3 glass p-6 rounded-2xl neon-border-green border-t-4 border-emerald-500">
+                <form id="form-triagem" class="opacity-20 pointer-events-none transition-all duration-700">
+
+                    <div class="flex justify-between items-center mb-6 p-4 bg-emerald-900/10 rounded-lg border border-emerald-900/40">
+                        <div>
+                            <label class="label-tri block">Paciente em Atendimento</label>
+                            <span id="atend-nome" class="font-bold text-white uppercase italic text-xl tracking-tighter">AGUARDANDO SELEÇÃO...</span>
+                        </div>
+                        <div class="text-right">
+                            <label class="label-tri block">Prontuário</label>
+                            <span id="atend-id" class="font-bold text-emerald-400 block tracking-widest text-lg">---</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="label-tri block mb-3 border-b border-slate-800 pb-1">01. Sinais Vitais</label>
+                        <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+                            <div class="flex flex-col"><label class="label-tri text-center">P.A (mmHg)</label><input type="text" id="v-pa" class="input-tri text-center font-bold" placeholder="120/80"></div>
+                            <div class="flex flex-col"><label class="label-tri text-center">Glic (mg/dL)</label><input type="text" id="v-glic" class="input-tri text-center" placeholder="--"></div>
+                            <div class="flex flex-col"><label class="label-tri text-center">Temp (ºC)</label><input type="text" id="v-temp" class="input-tri text-center" placeholder="36.5"></div>
+                            <div class="flex flex-col"><label class="label-tri text-center">SpO2 (%)</label><input type="text" id="v-spo2" class="input-tri text-center" placeholder="98"></div>
+                            <div class="flex flex-col"><label class="label-tri text-center">F.C (bpm)</label><input type="text" id="v-fc" class="input-tri text-center" placeholder="80"></div>
+                            <div class="flex flex-col"><label class="label-tri text-center">F.R (irpm)</label><input type="text" id="v-fr" class="input-tri text-center" placeholder="16"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div class="space-y-4">
+                            <label class="label-tri block border-b border-slate-800 pb-1">02. Informações Clínicas</label>
+                            <div class="flex flex-col"><label class="label-tri text-orange-500">Alergias Conocidas</label><input type="text" id="v-alergia" class="input-tri border-orange-900/50 font-bold" placeholder="Nenhuma / Descrição"></div>
+                            <div class="flex flex-col"><label class="label-tri">Queixa Principal</label><input type="text" id="v-queixa" class="input-tri" placeholder="Motivo da vinda"></div>
+                            <div class="flex flex-col"><label class="label-tri">Comorbidades (DM/HAS/Outros)</label><input type="text" id="v-comorb" class="input-tri" placeholder="Ex: Hipertenso, Diabético"></div>
+                        </div>
+                        <div class="space-y-4">
+                            <label class="label-tri block border-b border-slate-800 pb-1">03. Avaliação Física</label>
+                            <div class="flex flex-col"><label class="label-tri">HDA (História da Doença Atual)</label><textarea id="v-hda" rows="2" class="input-tri resize-none" placeholder="Relato do paciente..."></textarea></div>
+                            <div class="flex flex-col"><label class="label-tri">Exame Físico / Observações</label><textarea id="v-ef" rows="2" class="input-tri resize-none" placeholder="Sinais visíveis, nível de consciência..."></textarea></div>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-slate-800">
+                        <label class="label-tri block text-center mb-4 italic">Classificação de Risco (Manchester)</label>
+                        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+                            <button type="button" onclick="setRisco(this, 'VERMELHO')" class="m-btn m-vermelho">Emergência</button>
+                            <button type="button" onclick="setRisco(this, 'LARANJA')" class="m-btn m-laranja">Muito Urgente</button>
+                            <button type="button" onclick="setRisco(this, 'AMARELO')" class="m-btn m-amarelo">Urgente</button>
+                            <button type="button" onclick="setRisco(this, 'VERDE')" class="m-btn m-verde">Pouco Urgente</button>
+                            <button type="button" onclick="setRisco(this, 'AZUL')" class="m-btn m-azul">Não Urgente</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full mt-8 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-4 rounded-xl uppercase text-xs shadow-xl transition-all active:scale-95">
+                        Finalizar Atendimento e Gerar Ficha
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <section class="glass rounded-2xl overflow-hidden border border-slate-800">
+            <div class="p-4 bg-slate-900/50 border-b border-slate-800 flex justify-between">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Painel de Triagem Médica // Controle de Fluxo</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-[11px] border-collapse">
+                    <thead class="bg-slate-900/80 text-slate-500 uppercase font-bold">
+                        <tr>
+                            <th class="p-4">Prioridade</th>
+                            <th class="p-4">Nº Prontuário</th>
+                            <th class="p-4">Nome do Paciente</th>
+                            <th class="p-4 text-center">Status Ativo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lista-concluidos" class="divide-y divide-slate-800">
+                        </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+    const API_URL = 'http://localhost:5000/api/atendimentos';
+        const API_PACIENTES = 'http://localhost:5000/api/pacientes';
+        let corRisco = "";
+        let pAtivo = { id: "", nome: "" };
+        let idParaGestao = null;
+
+        // --- 1. CARREGAR FILA DE ESPERA (Vindo da Recepção) ---
+        async function atualizarFilaEspera() {
+            try {
+                const res = await fetch(API_PACIENTES);
+                const pacientes = await res.json();
+                const lista = document.getElementById('lista-espera');
+                lista.innerHTML = "";
+
+                pacientes.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.id = `esp-${p.cns}`;
+                    tr.className = "border-b border-slate-900/50 hover:bg-emerald-500/5 transition-all cursor-pointer group";
+                    tr.onclick = () => selecionarPaciente(p.cns, p.nome);
+
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono text-slate-500 text-[10px]">${p.cns}</td>
+                        <td class="p-4 font-bold uppercase group-hover:text-emerald-400 transition-colors">${p.nome}</td>
+                        <td class="p-4 text-center"><span class="bg-blue-900/30 text-blue-400 p-1 rounded text-[8px] font-bold uppercase tracking-widest border border-blue-900/50">Aguardando</span></td>
+                    `;
+                    lista.appendChild(tr);
+                });
+            } catch (err) { console.error("Erro ao carregar fila de espera."); }
+        }
+
+        // --- 2. SELECIONAR PACIENTE PARA AVALIAÇÃO ---
+        function selecionarPaciente(id, nome) {
+            pAtivo = { id, nome };
+            document.getElementById('atend-nome').innerText = nome;
+            document.getElementById('atend-id').innerText = id;
+
+            const form = document.getElementById('form-triagem');
+            form.classList.remove('opacity-20', 'pointer-events-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- 3. LÓGICA MANCHESTER ---
+        function selecionarRisco(cor, elemento) {
+            corRisco = cor;
+            document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('selected'));
+            elemento.classList.add('selected');
+        }
+
+        // --- 4. ENVIAR TRIAGEM PARA O MOTOR (index.py) ---
+        async function finalizarTriagem() {
+            if (!corRisco) return alert("Selecione a Classificação de Risco!");
+
+            const dados = {
+                cns: pAtivo.id,
+                pa: document.getElementById('pa').value,
+                glicemia: document.getElementById('glicemia').value,
+                temp: document.getElementById('temp').value,
+                spo2: document.getElementById('spo2').value,
+                fc: document.getElementById('fc').value,
+                fr: document.getElementById('fr').value,
+                queixa: document.getElementById('queixa').value,
+                risco: document.querySelector('.m-btn.selected span').innerText,
+                cor: corRisco
+            };
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(dados)
+                });
+
+                if (res.ok) {
+                    abrirModal('modal-print');
+                    atualizarFilaConcluidos();
+                    atualizarFilaEspera();
+                }
+            } catch (err) { alert("Erro ao salvar triagem no PostgreSQL."); }
+        }
+
+        // --- 5. CARREGAR FILA CONCLUÍDA (Ordenada por Manchester no Motor) ---
+        async function atualizarFilaConcluidos() {
+            try {
+                const res = await fetch(API_URL);
+                const atendimentos = await res.json();
+                const lista = document.getElementById('lista-concluidos');
+                lista.innerHTML = "";
+
+                atendimentos.forEach(a => {
+                    const tr = document.createElement('tr');
+                    tr.className = "border-b border-slate-900/50 hover:bg-slate-800/50 transition-all cursor-pointer group";
+
+                    // Define a borda lateral baseada na cor do risco para feedback visual imediato
+                    const borderStyle = `border-l-4 border-l-${a.cor_risco === 'laranja' ? 'orange-500' : a.cor_risco + '-500'}`;
+                    tr.classList.add(...borderStyle.split(' '));
+
+                    tr.innerHTML = `
+                        <td class="p-4 font-mono text-slate-500">${a.paciente_cns}</td>
+                        <td class="p-4 font-bold uppercase group-hover:text-emerald-400">${a.nome}</td>
+                        <td class="p-4 text-center">
+                            <span class="bg-emerald-900/30 text-emerald-500 p-1 rounded text-[8px] font-bold uppercase border border-emerald-900/50">
+                                ${a.classificacao_risco}
+                            </span>
+                        </td>
+                    `;
+                    lista.appendChild(tr);
+                });
+            } catch (err) { console.error("Erro ao carregar fila de concluídos."); }
+        }
+
+        // --- APOIO E INICIALIZAÇÃO ---
+        function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function fecharModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function resetarAmbiente() {
+            document.getElementById('form-triagem').reset();
+            document.getElementById('form-triagem').classList.add('opacity-20', 'pointer-events-none');
+            document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('selected'));
+            corRisco = "";
+            fecharModal('modal-print');
+        }
+
+        window.onload = () => {
+            atualizarFilaEspera();
+            atualizarFilaConcluidos();
+            // Atualiza a fila a cada 30 segundos automaticamente
+            setInterval(atualizarFilaEspera, 30000);
+        };
+    </script>
+<div id="prontuario-impressao">
+    <div style="border: 2px solid black; padding: 15px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase; width: 100%;">
+
+        <div style="display: flex; align-items: center; border-bottom: 2px solid black; padding-bottom: 10px; margin-bottom: 15px;">
+            <div style="width: 60px; height: 60px; background: black; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 30px; margin-right: 15px;">H</div>
+            <div style="flex: 1;">
+                <h1 style="font-size: 20px; margin: 0; line-height: 1;">HOSPITAL MUNICIPAL DE VIGIA (HMV)</h1>
+                <p style="font-size: 10px; margin: 2px 0;">Núcleo de Protocolos e Triagem Avançada // Gestão BackInfo</p>
+                <p style="font-size: 12px; font-weight: bold; margin-top: 5px; border-top: 1px solid #ddd;">BOLETIM DE ATENDIMENTO DE URGÊNCIA (BAU)</p>
+            </div>
+            <div style="text-align: right; font-size: 9px;">
+                ID: <span id="pr-atendimento-id"></span><br>
+                DATA: <span id="pr-data-hora"></span>
+            </div>
+        </div>
+
+        <div style="background: #eee; padding: 5px; font-weight: bold; font-size: 11px; border-bottom: 1px solid black;">01. IDENTIFICAÇÃO DO PACIENTE</div>
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 10px; padding: 10px 0; font-size: 12px;">
+            <div><b>PACIENTE:</b> <span id="pr-nome"></span></div>
+            <div><b>CNS:</b> <span id="pr-cns"></span></div>
+            <div><b>MÃE:</b> <span id="pr-mae">--</span></div>
+            <div><b>NASC:</b> <span id="pr-nasc"></span></div>
+        </div>
+
+        <div style="background: #eee; padding: 5px; font-weight: bold; font-size: 11px; border-bottom: 1px solid black; margin-top: 10px;">02. AVALIAÇÃO DE SINAIS VITAIS</div>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 12px; text-align: center;">
+            <tr>
+                <td style="border: 1px solid black; padding: 5px;"><b>P.A (mmHg)</b></td>
+                <td style="border: 1px solid black; padding: 5px;"><b>TEMP (°C)</b></td>
+                <td style="border: 1px solid black; padding: 5px;"><b>FC (bpm)</b></td>
+                <td style="border: 1px solid black; padding: 5px;"><b>SpO2 (%)</b></td>
+                <td style="border: 1px solid black; padding: 5px;"><b>GLIC (mg/dL)</b></td>
+            </tr>
+            <tr>
+                <td style="border: 1px solid black; padding: 8px;" id="pr-pa">--</td>
+                <td style="border: 1px solid black; padding: 8px;" id="pr-temp">--</td>
+                <td style="border: 1px solid black; padding: 8px;" id="pr-fc">--</td>
+                <td style="border: 1px solid black; padding: 8px;" id="pr-spo2">--</td>
+                <td style="border: 1px solid black; padding: 8px;" id="pr-glic">--</td>
+            </tr>
+        </table>
+
+        <div style="background: #eee; padding: 5px; font-weight: bold; font-size: 11px; border-bottom: 1px solid black; margin-top: 10px;">03. QUEIXA PRINCIPAL / AVALIAÇÃO DA ENFERMAGEM</div>
+        <div style="border: 1px solid black; min-height: 80px; padding: 10px; font-size: 12px; margin-top: 5px;" id="pr-queixa">--</div>
+
+        <div style="margin-top: 20px; display: flex; align-items: stretch; gap: 15px;">
+            <div style="border: 5px solid black; padding: 15px; flex: 1; text-align: center;">
+                <p style="font-size: 10px; margin-bottom: 5px;">PROTOCOLO DE MANCHESTER</p>
+                <h2 style="font-size: 24px; font-weight: 900; margin: 0;" id="pr-risco">--</h2>
+            </div>
+            <div style="flex: 1.5; border: 1px solid black; padding: 10px; position: relative;">
+                <p style="font-size: 9px; position: absolute; bottom: 5px; right: 10px;">ASSINATURA/CARIMBO PROFISSIONAL</p>
+                <div style="border-bottom: 1px dashed black; margin-top: 40px; width: 90%; margin-left: auto; margin-right: auto;"></div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 15px; font-size: 8px; color: #555;">
+            SISTEMA JR HOSPITALAR - DESENVOLVIDO POR BACK INFORMATICA // VIGIA-PA
+        </div>
+    </div>
+</div>
+</body>
+</html>

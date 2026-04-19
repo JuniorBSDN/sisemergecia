@@ -1,0 +1,5 @@
+flask_cors
+flask
+psycopg2-binary
+flask_sqlalchemy
+pyinstaller

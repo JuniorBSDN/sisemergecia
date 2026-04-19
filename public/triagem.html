@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVN // TRIAGEM OPERACIONAL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #f8fafc; color: #1e293b; }
+        .hvn-card { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .input-hvn { @apply bg-white border border-slate-300 p-2.5 rounded-none text-[11px] text-slate-900 focus:border-emerald-600 outline-none transition-all font-bold uppercase w-full; }
+        .label-hvn { @apply text-[9px] text-emerald-600 font-black mb-1 uppercase tracking-tighter block; }
+
+        /* Manchester Styles */
+        .m-btn { @apply py-4 rounded text-[10px] font-black uppercase transition-all border-2 border-transparent opacity-40; }
+        .m-btn.selected { @apply opacity-100 scale-105 border-slate-900 shadow-lg; }
+
+        .m-vermelho { background-color: #ef4444; color: white; }
+        .m-laranja { background-color: #f97316; color: white; }
+        .m-amarelo { background-color: #eab308; color: black; }
+        .m-verde { background-color: #22c55e; color: white; }
+        .m-azul { background-color: #3b82f6; color: white; }
+
+        @media print {
+            body { background: white !important; }
+            #main-app, .no-print { display: none !important; }
+            #print-prontuario { display: block !important; visibility: visible !important; }
+            @page { margin: 1cm; size: auto; }
+        }
+        #print-prontuario { display: none; }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <div id="main-app" class="p-4 md:p-8">
+        <header class="max-w-7xl mx-auto flex justify-between items-center mb-8 border-b-2 border-emerald-500 pb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-emerald-600 flex items-center justify-center text-white font-black text-xl italic shadow-lg">T</div>
+                <div>
+                    <h1 class="text-xl font-black text-slate-900 tracking-tighter italic uppercase">HVN // Triagem Avançada</h1>
+                    <p id="user-display" class="text-[9px] text-emerald-600 font-black uppercase tracking-widest italic">Setor: Classificação de Risco</p>
+                </div>
+            </div>
+            <p id="data-hora" class="text-slate-900 font-black text-xs"></p>
+        </header>
+
+        <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <aside class="lg:col-span-3">
+                <div class="hvn-card overflow-hidden">
+                    <div class="p-4 bg-slate-900 text-white flex justify-between items-center">
+                        <h3 class="text-[10px] font-black uppercase italic">Aguardando Triagem</h3>
+                    </div>
+                    <div id="fila-espera" class="divide-y max-h-[600px] overflow-y-auto">
+                        </div>
+                </div>
+            </aside>
+
+            <form id="form-triagem" class="lg:col-span-9 space-y-6 opacity-50 pointer-events-none transition-all">
+                <div class="hvn-card p-8 border-t-4 border-emerald-600">
+                    <div class="flex justify-between items-start mb-6 border-b pb-4">
+                        <div>
+                            <h2 class="text-sm font-black text-slate-800 uppercase italic">Paciente Selecionado:</h2>
+                            <p id="nome-paciente-ativo" class="text-xl font-black text-emerald-600 uppercase">---</p>
+                        </div>
+                        <div class="text-right text-[10px] font-bold text-slate-400 uppercase">
+                            CNS: <span id="cns-paciente-ativo">---</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                        <div>
+                            <label class="label-hvn">P.A (mmHg)</label>
+                            <input type="text" id="v-pa" class="input-hvn" placeholder="120/80">
+                        </div>
+                        <div>
+                            <label class="label-hvn">Temp (°C)</label>
+                            <input type="text" id="v-temp" class="input-hvn" placeholder="36.5">
+                        </div>
+                        <div>
+                            <label class="label-hvn">FC (bpm)</label>
+                            <input type="text" id="v-fc" class="input-hvn" placeholder="80">
+                        </div>
+                        <div>
+                            <label class="label-hvn">SpO2 (%)</label>
+                            <input type="text" id="v-spo2" class="input-hvn" placeholder="98">
+                        </div>
+                        <div>
+                            <label class="label-hvn">Glic (mg/dL)</label>
+                            <input type="text" id="v-glic" class="input-hvn" placeholder="90">
+                        </div>
+                    </div>
+
+                    <div class="mb-8">
+                        <label class="label-hvn">Queixa Principal / Avaliação</label>
+                        <textarea id="v-queixa" rows="4" class="input-hvn normal-case font-medium text-sm" placeholder="Descreva os sintomas..."></textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <label class="label-hvn mb-4">Classificação de Manchester</label>
+                        <div class="grid grid-cols-5 gap-2">
+                            <button type="button" onclick="setRisco('vermelho', 'EMERGÊNCIA')" class="m-btn m-vermelho" id="btn-vermelho">Emergência</button>
+                            <button type="button" onclick="setRisco('laranja', 'MUITO URGENTE')" class="m-btn m-laranja" id="btn-laranja">Muito Urgente</button>
+                            <button type="button" onclick="setRisco('amarelo', 'URGENTE')" class="m-btn m-amarelo" id="btn-amarelo">Urgente</button>
+                            <button type="button" onclick="setRisco('verde', 'POUCO URGENTE')" class="m-btn m-verde" id="btn-verde">Pouco Urgente</button>
+                            <button type="button" onclick="setRisco('azul', 'NÃO URGENTE')" class="m-btn m-azul" id="btn-azul">Não Urgente</button>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-6 border-t">
+                        <button type="submit" class="bg-emerald-600 text-white font-black py-4 px-16 uppercase text-xs italic shadow-xl hover:bg-emerald-700 transition-all">Finalizar Triagem e Imprimir</button>
+                    </div>
+                </div>
+            </form>
+        </main>
+    </div>
+
+    <div id="print-prontuario">
+        <div style="border: 2px solid black; padding: 20px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;">
+            <div style="display: flex; align-items: center; border-bottom: 2px solid black; padding-bottom: 15px; margin-bottom: 15px;">
+                <div style="width: 50px; height: 50px; background: black; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 30px; margin-right: 15px;">T</div>
+                <div style="flex: 1;">
+                    <h1 style="font-size: 18px; margin: 0;">HOSPITAL MUNICIPAL DE VIGIA (HMV)</h1>
+                    <p style="font-size: 10px; margin: 0;">BOLETIM DE AVALIAÇÃO CLÍNICA E TRIAGEM</p>
+                </div>
+                <div style="text-align: right; font-size: 10px;" id="pr-data-hora"></div>
+            </div>
+
+            <div style="margin-bottom: 15px; font-size: 12px;">
+                <b>PACIENTE:</b> <span id="pr-nome"></span><br>
+                <b>CNS:</b> <span id="pr-cns"></span> | <b>NASC:</b> <span id="pr-nasc"></span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 15px; text-align: center; font-size: 12px;">
+                <tr style="background: #f0f0f0;">
+                    <td style="border: 1px solid black; padding: 5px;"><b>P.A</b></td>
+                    <td style="border: 1px solid black; padding: 5px;"><b>TEMP</b></td>
+                    <td style="border: 1px solid black; padding: 5px;"><b>FC</b></td>
+                    <td style="border: 1px solid black; padding: 5px;"><b>SpO2</b></td>
+                    <td style="border: 1px solid black; padding: 5px;"><b>GLIC</b></td>
+                </tr>
+                <tr>
+                    <td style="border: 1px solid black; padding: 10px;" id="pr-pa"></td>
+                    <td style="border: 1px solid black; padding: 10px;" id="pr-temp"></td>
+                    <td style="border: 1px solid black; padding: 10px;" id="pr-fc"></td>
+                    <td style="border: 1px solid black; padding: 10px;" id="pr-spo2"></td>
+                    <td style="border: 1px solid black; padding: 10px;" id="pr-glic"></td>
+                </tr>
+            </table>
+
+            <div style="border: 1px solid black; padding: 10px; min-height: 100px; margin-bottom: 15px; font-size: 11px;">
+                <b>QUEIXA/AVALIAÇÃO:</b><br>
+                <p id="pr-queixa" style="margin-top: 5px;"></p>
+            </div>
+
+            <div style="display: flex; gap: 10px; align-items: stretch;">
+                <div style="border: 4px solid black; padding: 20px; flex: 1; text-align: center;">
+                    <small style="font-size: 9px;">CLASSIFICAÇÃO DE RISCO</small>
+                    <h2 id="pr-risco" style="font-size: 20px; margin: 0; font-weight: 800;"></h2>
+                </div>
+                <div style="border: 1px solid black; flex: 1.5; padding: 10px; display: flex; align-items: flex-end; justify-content: center;">
+                    <div style="border-top: 1px solid black; width: 80%; text-align: center; font-size: 9px;">ASSINATURA RESPONSÁVEL</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+        let pAtivo = null;
+        let corRisco = '';
+        let nomeRisco = '';
+
+        // --- FILA DE ESPERA ---
+        async function carregarFila() {
+            try {
+                const res = await fetch(`${API_URL}/pacientes_fila_triagem`);
+                const dados = await res.json();
+                const container = document.getElementById('fila-espera');
+                container.innerHTML = dados.map(p => `
+                    <div class="p-4 hover:bg-emerald-50 cursor-pointer transition-all border-l-4 border-transparent hover:border-emerald-600"
+                         onclick='selecionarPaciente(${JSON.stringify(p)})'>
+                        <h4 class="text-xs font-black uppercase text-slate-800">${p.nome}</h4>
+                        <p class="text-[9px] text-slate-400 font-bold">SUS: ${p.cns}</p>
+                    </div>
+                `).join('');
+            } catch (e) { console.error("Erro na fila"); }
+        }
+
+        function selecionarPaciente(p) {
+            pAtivo = p;
+            document.getElementById('nome-paciente-ativo').innerText = p.nome;
+            document.getElementById('cns-paciente-ativo').innerText = p.cns;
+            document.getElementById('form-triagem').classList.remove('opacity-50', 'pointer-events-none');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // --- MANCHESTER ---
+        function setRisco(cor, nome) {
+            corRisco = cor;
+            nomeRisco = nome;
+            document.querySelectorAll('.m-btn').forEach(b => b.classList.remove('selected'));
+            document.getElementById(`btn-${cor}`).classList.add('selected');
+        }
+
+        // --- FINALIZAÇÃO E IMPRESSÃO ---
+        document.getElementById('form-triagem').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!corRisco) return alert("Selecione a Classificação de Risco.");
+
+            const payload = {
+                cns: pAtivo.cns,
+                pa: document.getElementById('v-pa').value,
+                temp: document.getElementById('v-temp').value,
+                fc: document.getElementById('v-fc').value,
+                spo2: document.getElementById('v-spo2').value,
+                glicemia: document.getElementById('v-glic').value,
+                queixa: document.getElementById('v-queixa').value,
+                risco: nomeRisco,
+                cor: corRisco
+            };
+
+            try {
+                const res = await fetch(`${API_URL}/atendimentos`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    gerarProntuario(payload);
+                    location.reload();
+                }
+            } catch (err) { alert("Erro ao salvar atendimento."); }
+        };
+
+        function gerarProntuario(d) {
+            document.getElementById('pr-nome').innerText = pAtivo.nome;
+            document.getElementById('pr-cns').innerText = pAtivo.cns;
+            document.getElementById('pr-nasc').innerText = pAtivo.data_nascimento;
+            document.getElementById('pr-pa').innerText = d.pa;
+            document.getElementById('pr-temp').innerText = d.temp;
+            document.getElementById('pr-fc').innerText = d.fc;
+            document.getElementById('pr-spo2').innerText = d.spo2;
+            document.getElementById('pr-glic').innerText = d.glicemia;
+            document.getElementById('pr-queixa').innerText = d.queixa;
+            document.getElementById('pr-risco').innerText = d.risco;
+            document.getElementById('pr-data-hora').innerText = new Date().toLocaleString();
+
+            window.print();
+        }
+
+        setInterval(() => {
+            document.getElementById('data-hora').innerText = new Date().toLocaleString('pt-BR');
+        }, 1000);
+
+        window.onload = carregarFila;
+    </script>
+</body>
+</html>
