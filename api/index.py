@@ -20,6 +20,56 @@ def get_db():
     )
 
 
+# No topo do arquivo, adicione:
+MASTER_KEY = os.getenv('MASTER_KEY', 'senha_padrao_local') # Fallback para teste local
+
+# 6. GESTÃO DE UNIDADES (Ref: jrHospitalar.html / Painel do Dono)
+@app.route('/api/unidades', methods=['GET', 'POST'])
+def gerenciar_unidades():
+    conn = get_db()
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+
+    if request.method == 'POST':
+        d = request.json
+        # VALIDAÇÃO DA CHAVE MESTRE (BACKINFO)
+        if d.get('senha') != MASTER_KEY:
+            conn.close()
+            return jsonify({"error": "Chave Mestra Inválida"}), 403
+
+        try:
+            cur.execute("""
+                INSERT INTO unidades (cnes, razao_social, nome_fantasia, cnpj, ie, im, endereco, responsavel_tecnico, protocolo)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (cnes) DO UPDATE SET 
+                razao_social = EXCLUDED.razao_social, nome_fantasia = EXCLUDED.nome_fantasia,
+                endereco = EXCLUDED.endereco, protocolo = EXCLUDED.protocolo
+            """, (d['cnes'], d['razao'], d['fantasia'], d['cnpj'], d['ie'], d['im'], d['endereco'], d['rt'], d['protocolo']))
+            conn.commit()
+            return jsonify({"status": "Unidade sincronizada"}), 201
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        finally:
+            conn.close()
+
+    # GET: Lista todas as unidades
+    cur.execute("SELECT * FROM unidades ORDER BY criado_em DESC")
+    unidades = cur.fetchall()
+    conn.close()
+    return jsonify(unidades)
+
+@app.route('/api/unidades/<cnes>', methods=['DELETE'])
+def excluir_unidade(cnes):
+    d = request.json
+    if d.get('senha') != MASTER_KEY:
+        return jsonify({"error": "Não autorizado"}), 403
+    
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM unidades WHERE cnes = %s", (cnes,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "Removido"}), 200
+
 # 1. LOGIN (Ref: index.html)
 @app.route('/api/auth_prestador', methods=['POST'])
 def auth():
